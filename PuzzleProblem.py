@@ -20,6 +20,7 @@ class State:
         neighbors=[]
         row =0
         col=0
+        # find blank
         for i in range(N):
             for j in range(N):
                 if self.tiles[i][j]==" ":
@@ -45,6 +46,13 @@ class State:
         for row in self.tiles:
             s += " ".join(str(x) for x in row) + "\n"
         return s
+    
+    def __repr__(self):
+        s = ""
+        for row in self.tiles:
+            s += " ".join(str(x) for x in row) + "\n"
+        return s
+
     def __eq__(self, other):
         return self.tiles == other.tiles
 
@@ -52,20 +60,22 @@ class State:
      return hash(str(self.tiles))
     
 
-def find_index_2d(nested_array, value):
-    for row, array in enumerate(nested_array):
-        for column in range(len(array)):
-            if array[column] == value:
-                return (row, column)
+# def find_index_2d(nested_array, value):
+#     for row, array in enumerate(nested_array):
+#         for column in range(len(array)):
+#             if array[column] == value:
+#                 return (row, column)
     
     
 class Node:
-    def __init__(self, state, parent=None, cost=0, depth=0):
+    def __init__(self, state: State, parent=None, cost=0, depth=0, hue=0):
         self.state = state
         self.parent = parent
         self.cost = cost
         self.depth = depth
         self.action = []
+        self.hue = hue
+        
 
 
     def path(self):
@@ -76,8 +86,8 @@ class Node:
             node= node.parent
         return list(reversed(Path))
 
-    def __str__(self):
-        return str(self.state)  
+    def __repr__(self):
+        return self.state.__repr__()
     
     
     
@@ -228,7 +238,7 @@ class GraphSearch:
                 return path
         return None
     
-def bfs_solver(start_state, goal_state):
+def bfs_solver(start_state :State, goal_state:State):
     """
     Performs a Breadth-First Search to find a solution to the 8-puzzle.
     """
@@ -259,13 +269,13 @@ def bfs_solver(start_state, goal_state):
             print(f"Total time: {time_end-time_start} seconds")
             print("Goal Found!")
             return node.path()
-        
-        # Explore the neighbors (next possible moves)
+        # Mark the state as explored
+        explored.add(node.state)
+        # neighbors (next possible moves)
         for neighbor_state in node.state.get_neighbor():
             # If we haven't seen this state before...
             if neighbor_state not in explored:
-                # ...add it to the explored set and the frontier
-                explored.add(neighbor_state)
+                # ...add it to the the frontier
                 new_node = Node(neighbor_state, parent=node, depth=node.depth + 1)
                 frontier.put(new_node)
         
@@ -276,14 +286,14 @@ def bfs_solver(start_state, goal_state):
     print("Goal not found.")
     return None
 
-def dfs_solver(start_state,goal_state):
+def dfs_solver(start_state, goal_state):
     """
     performs a depth first search to find a solution to the 8-puzzle
     
     """
     time_start=time.time()
     frontier = [Node(start_state)]
-    explored = {start_state}
+    explored = []
     step=1
     print("Starting DFS Traversal...")
     print("_____________________________________________")
@@ -297,9 +307,9 @@ def dfs_solver(start_state,goal_state):
             print("Goal Found!")
             return node.path()
         
+        explored.append(node.state)
         for neighbor_state in node.state.get_neighbor():
-            if neighbor_state not in explored:
-                explored.add(neighbor_state)
+            if neighbor_state not in explored and all(n.state!=neighbor_state for n in frontier):
                 new_node = Node(neighbor_state, parent=node, depth=node.depth + 1)
                 frontier.append(new_node)
         step+=1
@@ -313,7 +323,7 @@ def dls_solver(start_state, goal_state, limit):
     """
     time_start=time.time()
     frontier = [Node(start_state, depth=0)]
-    explored = {start_state}
+    explored = []
     step = 1
 
     print("Starting DLS Traversal...")
@@ -323,7 +333,7 @@ def dls_solver(start_state, goal_state, limit):
         depth = node.depth
         print(f"Step {step}: Visiting state (Depth: {node.depth})")
         print(node.state)
-        explored.add(node.state)
+        explored.append(node.state)
         if node.state.is_goal(goal_state.tiles):
             time_end=time.time()
             print(f"Total time: {time_end-time_start} seconds")
@@ -355,7 +365,111 @@ def ids_solver(start_state, goal_state, max_depth):
         if path:
             return path
     return None
+def h1(state, goal):
+    count = 0
+    for i in range(3):
+        for j in range(3):
+            # مقارنة العنصر في الحالة الحالية مع العنصر في الحالة الهدف
+            if state[i][j] != goal[i][j]:
+                count += 1
+    return count
+def h2(state, goal):
+    count = 0
+    for i in range(3):
+        for j in range(3):
+        # i,j position in current state   
+            for r in range(3):
+                for c in range(3):
+                    # r,c position in goal state
+                    # بنبحث عن العنصر الموجود في الحالة الحالية مكانه وين في الحالة الهدف
+                    if goal[r][c]==state[i][j]:
+                        # الصف غلط
+                        if i!=r:
+                            count+=1
+                        # العمود غلط
+                        if j!=c:
+                            count+=1
+    return count
+def gbfs_solver(start_state: State, goal_state:State , heuristic='h2'):
+    time_start=time.time()
+    frontier = [Node(start_state)]
+    explored = []
+    step = 1
 
+    while frontier:
+        
+        
+        if heuristic=='h1':
+            frontier.sort(key=lambda n: h1(n.state.tiles, goal_state.tiles))
+            
+        else:
+            frontier.sort(key=lambda n: h2(n.state.tiles, goal_state.tiles))
+
+        print("Step", step)
+        print("Frontier:", [n.state.tiles for n in frontier])
+        print("Explored:", [s.tiles for s in explored])
+        print("-----------------------------------")
+        step += 1
+        
+        node = frontier.pop(0)
+        explored.append(node.state)
+        max_frontier=0
+        if len(frontier)>max_frontier:
+            max_frontier=len(frontier)
+
+        if node.state.is_goal(goal_state.tiles):
+            print("Goal Found!")
+            number_of_explored=len(explored)
+            time_end=time.time()
+            print(f"Max size of frontier: {max_frontier}")
+            print(f"Number of explored nodes: {number_of_explored}")
+            print(f"Total time: {time_end-time_start} seconds")
+            return node.path()
+
+
+        for neighbor_state in node.state.get_neighbor():
+            if neighbor_state not in explored and all(n.state != neighbor_state for n in frontier):
+                frontier.append(Node(neighbor_state, parent=node))
+
+    print("Goal not found.")
+    return None
+
+def a_start_solver(start_state:State , goal_state:State,heuristic='h1'):
+    frontier=[Node(start_state)]
+    explored=[]
+    step=1
+    while frontier:
+        node=frontier.pop(0)
+        if heuristic == 'h1':
+            h_val = h1(node.state.tiles, goal_state.tiles)
+            # f(n)=g(n)+h(n)
+            frontier.sort(key=lambda n: n.depth + h_val)
+        else:
+            h_val = h2(node.state.tiles, goal_state.tiles)
+            # f(n)=g(n)+h(n)
+            frontier.sort(key=lambda n: n.depth + h_val)
+
+
+        print ("Step",step)
+        print("===================================")
+        print(f"Current Node: {node.state.tiles}")
+        print(f"g(n) = {node.depth}")
+        print(f"h(n) = {h_val}")
+        print(f"f(n) = {node.depth + h_val}")
+        print("Frontier:",[n.state.tiles for n in frontier])
+        print("Explored:", [s.tiles for s in explored])
+        print("===================================")
+        step += 1
+
+        explored.append(node.state)
+        if node.state.is_goal(goal_state.tiles):
+            print("Goal Found!")
+            return node.path()
+        for neighbor_state in node.state.get_neighbor():
+            if neighbor_state not in explored and all(n.state!=neighbor_state for n in frontier):
+                frontier.append(Node(neighbor_state,parent=node,depth=node.depth+1 , hue=h1(neighbor_state.tiles, goal_state.tiles)))
+    print ("Goal not found.")
+    return None
 
 def main():
     print("=== General Search System ===")
@@ -404,9 +518,9 @@ def main():
     elif choice == '2':
         print("8-Puzzle search selected.")
         # Define start and goal states here or take input
-        state = [[8, 7, 6],
-                 [5, 4, 3],
-                 [2, 1, " "]]
+        state = [[1, 2, 3],
+                 [4, " ", 6],
+                 [7, 5, 8]]
         
         goal_state = [[1, 2, 3],
                  [4, 5, 6],
@@ -419,7 +533,9 @@ def main():
         print("1. BFS")
         print("2. DFS")
         print("3. IDS")
-        algo_choice = input("Enter your choice (1 or 3): ")
+        print("4. GBFS")
+        print("5. A* Search")
+        algo_choice = input("Enter your choice (1 or 5): ")
         
         if algo_choice == '1':
             solution_path = bfs_solver(start_state, goal_state)
@@ -457,6 +573,27 @@ def main():
                     print(f"Move #{i}:")
                     print(state)
             else:
-                print("\n--- No Solution Found ---")                        
+                print("\n--- No Solution Found ---")  
+        elif algo_choice == '4':
+            print("siii")
+            solution_path = gbfs_solver(start_state, goal_state)
+            if solution_path:
+                print("\n--- Solution Path ---")
+                for i, state in enumerate(solution_path):
+                    if i == 15:
+                        print("stop printing after 15 moves")
+                        break
+                    print(f"Move #{i}:")
+                    print(state)  
+        elif algo_choice == '5':
+            solution_path = a_start_solver(start_state, goal_state)
+            if solution_path:
+                print ("\n--- Solution Path ---")
+                for i, state in enumerate(solution_path):
+                  if i==15:
+                      print ("stop printing after 15 moves")
+                      break
+                  print (f"Move {i}:")
+                  print (state)                          
 if __name__ == "__main__":
     main()        
